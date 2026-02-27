@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Porodično Stablo - Bosno</title>
+    <style>
+        * { box-sizing: border-box; margin:0; padding:0; }
+        body { font-family: system-ui, sans-serif; background:#f9fafb; color:#1f2937; line-height:1.5; padding:20px; max-width:1100px; margin:0 auto; }
+        body.modal-open { overflow: hidden; }
+        .header { background: linear-gradient(135deg, #4f46e5, #7c3aed); color:white; padding:2rem; border-radius:12px; text-align:center; margin-bottom:2rem; }
+        .btn { background:#4f46e5; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-weight:500; margin:4px; transition:0.2s; }
+        .btn:hover { background:#4338ca; transform:translateY(-1px); }
+        .btn-success { background:#10b981; }
+        .btn-success:hover { background:#059669; }
+        .btn-danger  { background:#ef4444; }
+        .btn-danger:hover  { background:#dc2626; }
+        .btn-small { padding:6px 12px; font-size:13px; }
+        .form-container, .login-container { background:white; padding:2rem; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.08); margin-bottom:1.5rem; }
+        .form-group { margin-bottom:1.4rem; }
+        label { display:block; font-weight:600; margin-bottom:0.5rem; color:#374151; }
+        input, select, textarea { width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; font-size:16px; }
+        input:focus, select:focus { outline:none; border-color:#4f46e5; box-shadow:0 0 0 3px rgba(79,70,229,0.1); }
+        table { width:100%; border-collapse:collapse; background:white; border-radius:10px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.06); margin:1rem 0; }
+        th, td { padding:12px; text-align:left; border-bottom:1px solid #e5e7eb; }
+        th { background:#f3f4f6; font-weight:600; }
+        tr:hover { background:#f9fafb; }
+        .modal { 
+            display:none; 
+            position:fixed !important; 
+            inset:0; 
+            background:rgba(0,0,0,0.6); 
+            z-index:9999 !important; 
+            overflow-y:auto; 
+            align-items:center; 
+            justify-content:center; 
+            padding:20px; 
+            backdrop-filter: blur(4px); 
+        }
+        .modal.show { display:flex !important; }
+        .modal-content { 
+            background:white; 
+            border-radius:12px; 
+            max-width:720px; 
+            width:100%; 
+            max-height:92vh; 
+            overflow-y:auto; 
+            box-shadow:0 10px 40px rgba(0,0,0,0.25); 
+            z-index:10000 !important; 
+        }
+        .modal-header { padding:1.5rem; font-size:1.5rem; font-weight:700; border-bottom:1px solid #e5e7eb; color:#4f46e5; }
+        .modal-footer { padding:1.5rem; text-align:right; border-top:1px solid #e5e7eb; }
+        .conditional { display:none; }
+        .conditional.show { display:block; }
+        .required::after { content:" *"; color:#ef4444; }
+        .warning { background:#fef2f2; border-left:4px solid #ef4444; padding:1rem; margin:1rem 0; border-radius:6px; }
+        .info    { background:#eff6ff; border-left:4px solid #3b82f6; padding:1rem; margin:1rem 0; border-radius:6px; }
+        .admin-badge { background:#f59e0b; color:white; padding:3px 10px; border-radius:12px; font-size:0.8rem; margin-left:8px; }
+    </style>
+    <script src="https://unpkg.com/pocketbase@0.22.1/dist/pocketbase.umd.js"></script>
+</head>
+<body>
+
+<div id="loginPage" class="login-container">
+    <div class="header">
+        <h1>🌳 Porodično stablo</h1>
+        <p>Familija Bosno i povezane porodice by Mehmed Bosno</p>
+    </div>
+
+    <form id="loginForm">
+        <h3>🔐 Prijava</h3>
+        <div class="form-group">
+            <label class="required">Email</label>
+            <input type="email" id="username" required autocomplete="username">
+        </div>
+        <div class="form-group">
+            <label class="required">Šifra</label>
+            <input type="password" id="password" required autocomplete="current-password">
+        </div>
+        <button type="button" class="btn" style="width:100%;" id="loginButton">Prijava</button>
+    </form>
+
+    <div style="text-align:center; margin-top:1.5rem; color:#6b7280; font-size:0.95rem;" id="allowedUsers">
+        <p><strong>Dozvoljeni korisnici:</strong> mehmed i ostali članovi porodice</p>
+        <p style="color:#ef4444; font-weight:500; margin-top:1rem;">
+            ⚠️ Namjenjeno članovima porodice – nije za dalju distribuciju!
+        </p>
+    </div>
+</div>
+
+<div id="mainApp" style="display:none;">
+    <div class="header">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+            <div>
+                <h1>🌳 Porodično stablo</h1>
+                <p>Familija Bosno i povezane porodice</p>
+            </div>
+            <div style="text-align:right;">
+                <div style="margin-bottom:0.5rem;">
+                    👤 <strong id="currentUser"></strong>
+                    <span id="adminBadge"></span>
+                </div>
+                <button class="btn btn-danger" onclick="logout()">Odjava</button>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; margin:1.5rem 0;">
+        <div class="form-container" style="text-align:center;">
+            <div style="font-size:2.2rem; font-weight:700; color:#4f46e5;" id="countOsobe">0</div>
+            <div>osoba</div>
+        </div>
+        <div class="form-container" style="text-align:center;">
+            <div style="font-size:2.2rem; font-weight:700; color:#4f46e5;" id="countPorodice">0</div>
+            <div>porodica</div>
+        </div>
+    </div>
+
+    <div style="margin:1.5rem 0; display:flex; flex-wrap:wrap; gap:8px;">
+        <button class="btn" onclick="showForm('osoba')">+ Nova osoba</button>
+        <button class="btn" onclick="showForm('porodica')">+ Nova porodica</button>
+        <button class="btn" style="background:#6b7280;" onclick="showAllData()">Pregled svega</button>
+        <button class="btn" style="background:#6b7280;" onclick="showUputstvo()">Uputstvo</button>
+        <button class="btn btn-success" onclick="exportData('csv')">Preuzmi CSV</button>
+        <button class="btn btn-success" onclick="exportData('json')">Preuzmi JSON</button>
+        <button class="btn" id="btnManageUsers" onclick="manageUsers()" style="display:none;">Upravljanje korisnicima</button>
+        <button class="btn" id="btnCleanDuplicates" onclick="cleanDuplicates()" style="display:none;">Čišćenje duplikata</button>
+        <button class="btn btn-danger" id="btnClearAll" onclick="clearAllData()" style="display:none; margin-left:auto;">🗑️ Obriši sve</button>
+		<button class="btn btn-success" id="btnAddMember" onclick="showAddMemberModal()" style="display:none;">+ Dodaj novog člana</button>
+
+    </div>
+
+    <div id="formArea" class="form-container" style="display:none;"></div>
+
+    <div id="recentData"></div>
+</div>
+
+<!-- MODAL ZA EDIT OSOBE -->
+<div id="modalEdit" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Uredi osobu: <span id="editHeaderId"></span></div>
+        <div style="padding:1.5rem;">
+            <form id="editForm">
+                <div class="form-group">
+                    <label class="required">Ime</label>
+                    <input type="text" id="editIme" required>
+                </div>
+                <div class="form-group">
+                    <label class="required">Prezime</label>
+                    <input type="text" id="editPrezime" required>
+                </div>
+                <div class="form-group"><label>Ime oca</label><input id="editImeOca"></div>
+                <div class="form-group"><label>Ime majke</label><input id="editImeMajke"></div>
+                <div class="form-group"><label>Djevojačko prezime majke</label><input id="editDjevMajke"></div>
+                <div class="form-group">
+                    <label>Datum rođenja (godina ili pun datum)</label>
+                    <input type="text" id="editDatumRod" placeholder="npr. 1985 ili 1985-06 ili 1985-06-15">
+                </div>
+                <div class="form-group"><label>Mjesto rođenja</label><input id="editMjestoRod"></div>
+                <div class="form-group">
+                    <label class="required">Spol</label>
+                    <select id="editSpol" required>
+                        <option value="">— odaberi —</option>
+                        <option value="M">Muško</option>
+                        <option value="Z">Žensko</option>
+                    </select>
+                </div>
+                <div id="editUdataGrp" class="form-group conditional">
+                    <label>Udata</label>
+                    <select id="editUdata"><option value="NE">Ne</option><option value="DA">Da</option></select>
+                </div>
+                <div id="editPrezUbrakuGrp" class="form-group conditional">
+                    <label>Prezime u braku</label>
+                    <input id="editPrezimeUbraku">
+                </div>
+                <div class="form-group">
+                    <label class="required">Živi</label>
+                    <select id="editZivi" required>
+                        <option value="">— odaberi —</option>
+                        <option value="DA">Da</option>
+                        <option value="NE">Ne</option>
+                    </select>
+                </div>
+                <div id="editSmrtGrp" class="conditional">
+                    <div class="form-group">
+                        <label>Datum smrti (godina ili pun datum)</label>
+                        <input type="text" id="editDatumSmrti" placeholder="npr. 2020 ili 2020-03">
+                    </div>
+                    <div class="form-group"><label>Mjesto smrti</label><input id="editMjestoSmrti"></div>
+                </div>
+                <div class="form-group">
+                    <label>Napomena</label>
+                    <textarea id="editNapomena" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modalEdit')">Otkaži</button>
+            <button class="btn btn-success" onclick="saveEdit()">Spremi promjene</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ZA EDIT PORODICE -->
+<div id="modalEditFamily" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Uredi porodicu: <span id="editFamilyHeaderId"></span></div>
+        <div style="padding:1.5rem;">
+            <form id="editFamilyForm">
+                <div class="form-group">
+                    <label class="required">Muž</label>
+                    <input list="osobeDatalistEdit" id="editMuz" required placeholder="počnite tipkati...">
+                </div>
+                <div class="form-group">
+                    <label class="required">Žena</label>
+                    <input list="osobeDatalistEdit" id="editZena" required placeholder="počnite tipkati...">
+                </div>
+                <div class="form-group">
+                    <label>Datum vjenčanja (godina ili pun datum)</label>
+                    <input type="text" id="editDatumBrak" placeholder="npr. 1985 ili 1985-06 ili 1985-06-15">
+                </div>
+                <div class="form-group"><label>Mjesto vjenčanja</label><input id="editMjestoBrak"></div>
+                <div class="form-group">
+                    <label>Djeca (odvojena zarezima)</label>
+                    <input id="editDjeca" placeholder="npr. Emir, Amina, Sara">
+                </div>
+                <div class="form-group">
+                    <label class="required">Status</label>
+                    <select id="editStatus" required>
+                        <option value="active">Aktivna</option>
+                        <option value="divorced">Razvedena</option>
+                        <option value="annulled">Poništena</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Napomena</label>
+                    <textarea id="editNapomenaPor" rows="2"></textarea>
+                </div>
+            </form>
+            <datalist id="osobeDatalistEdit"></datalist>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modalEditFamily')">Otkaži</button>
+            <button class="btn btn-success" onclick="saveEditFamily()">Spremi promjene</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ZA UPRAVLJANJE KORISNICIMA -->
+<div id="modalManageUsers" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Upravljanje korisnicima</div>
+        <div style="padding:1.5rem;">
+            <table id="usersTable">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Admin</th>
+                        <th>Akcije</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <button class="btn" style="margin-top:1rem;" onclick="showAddUserModal()">+ Novi korisnik</button>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modalManageUsers')">Zatvori</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ZA DODAVANJE KORISNIKA -->
+<div id="modalAddUser" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Dodaj novog korisnika</div>
+        <div style="padding:1.5rem;">
+            <form id="addUserForm">
+                <div class="form-group">
+                    <label class="required">Email</label>
+                    <input type="email" id="newUsername" required>
+                </div>
+                <div class="form-group">
+                    <label class="required">Šifra</label>
+                    <input type="password" id="newPassword" required>
+                </div>
+                <div class="form-group">
+                    <label>Admin</label>
+                    <input type="checkbox" id="newIsAdmin">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modalAddUser')">Otkaži</button>
+            <button class="btn btn-success" onclick="addNewUser()">Spremi</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ZA PROMJENU ŠIFRE -->
+<div id="modalChangePassword" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Promjena šifre za <span id="changePassUser"></span></div>
+        <div style="padding:1.5rem;">
+            <form id="changePassForm">
+                <div class="form-group">
+                    <label class="required">Nova šifra</label>
+                    <input type="password" id="changeNewPass" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modalChangePassword')">Otkaži</button>
+            <button class="btn btn-success" onclick="changePassword()">Spremi</button>
+        </div>
+    </div>
+</div>
+<!-- MODAL ZA DODAVANJE NOVOG ČLANA PORODICE -->
+<div id="modalAddMember" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Dodaj novog člana porodice</div>
+        <div style="padding:1.5rem;">
+            <form id="addMemberForm">
+                <div class="form-group">
+                    <label class="required">Email adresa</label>
+                    <input type="email" id="newMemberEmail" required placeholder="npr. ime.prezime@gmail.com">
+                </div>
+                <div class="form-group">
+                    <label class="required">Privremena šifra</label>
+                    <input type="text" id="newMemberPassword" required placeholder="npr. Porodica2026!">
+                    <small style="color:#6b7280; display:block; margin-top:4px;">
+                        Predloži članu da promijeni šifru nakon prvog logina.
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label>Admin prava?</label>
+                    <input type="checkbox" id="newMemberIsAdmin">
+                    <small style="color:#ef4444; display:block; margin-top:4px;">
+                        Označi samo ako želiš da ova osoba može upravljati korisnicima i brisati sve.
+                    </small>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modalAddMember')">Otkaži</button>
+            <button class="btn btn-success" onclick="addNewMember()">Dodaj člana</button>
+        </div>
+    </div>
+</div>
+<!-- MODAL ZA PREGLED SVIH PODATAKA -->
+<div id="modalAll" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Sve osobe i porodice</div>
+        <div style="padding:1.5rem;" id="allDataContent"></div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modalAll')">Zatvori</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ZA UPUTSTVO -->
+<div id="modalUputstvo" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Uputstvo za korištenje</div>
+        <div style="padding:1.5rem;">
+            <p>Nakon što ste dobili pristup formi za dodavanje osoba i/ili porodica slijedite polja na formi i pri tome unesite podatke u opisanom formatu. To se posebno odnosi na unos datuma. Osobe ili porodice koje ste vi dodali možete editovati - vršiti ispravke pogrešnog unosa ili dodavanje podataka.</p>
+            <p>Najbolje je, ako unosite više članova jedne porodice, da prvo dodate muškog i ženskog člana porodice kao pojedinačne osobe, a zatim da pokrenete modul za dodavanje porodice. Tamo ćete moći dodati svu djecu te porodice i na taj način podaci koji su im zajednički kao što su ime oca, ime majke ... će biti automatski pridruženi djeci.</p>
+            <p>U narednom koraku za tako dodane članove porodice možete dodati ili ispraviti podatke korištenjem tastera "Uredi". Modal za uređivanje članova ili porodica će vam biti dostupan na poziv tastera "Pregled svega"</p>
+            <p>Nemojte zaboraviti da na kraju kliknete na zeleni taster "Spremi promjene".</p>
+            <p>Ako bude pitanja ili nedoumica: +387 60 319 4864, dostupno na WhatsApp i Viber.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modalUputstvo')">Zatvori</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const pb = new PocketBase('https://bosno-pocketbase-production.up.railway.app/');
+let openModalsCount = 0;
+
+function updateBodyScroll() {
+    if (openModalsCount > 0) {
+        document.body.classList.add('modal-open');
+    } else {
+        document.body.classList.remove('modal-open');
+    }
+}
+
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('show');
+        openModalsCount++;
+        updateBodyScroll();
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+        openModalsCount = Math.max(0, openModalsCount - 1);
+        updateBodyScroll();
+    }
+}
+
+
+pb.autoCancellation(false);  // Isključi auto-cancellation globalno
+let currentUser = null;
+let editingPerson = null;
+let editingFamily = null;
+let editingUser = null;
+
+async function init() {
+    if (pb.authStore.isValid) {
+        try {
+            // Prvo refresh token
+            const refreshed = await pb.collection('users').authRefresh();
+            const userId = refreshed.record.id;  // uzmi ID iz auth store-a
+
+            // Zatim dohvati puni record sa admin poljem
+            currentUser = await pb.collection('users').getOne(userId, {
+                // Opcionalno: ako želiš još neka polja, dodaj ih
+            });
+
+            console.log('Current user:', currentUser);  // ← za debug, vidiš li admin?
+            console.log('Is admin:', currentUser.admin);  // treba biti true/false
+        } catch (err) {
+            console.error('Auth refresh error:', err);
+            pb.authStore.clear();
+            currentUser = null;
+        }
+    }
+
+    if (currentUser) {
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        document.getElementById('currentUser').textContent = currentUser.email;
+
+        if (currentUser.admin === true) {  // ← koristimo === true za sigurnost
+            document.getElementById('adminBadge').innerHTML = '<span class="admin-badge">Admin</span>';
+            document.getElementById('btnManageUsers').style.display = 'inline-block';
+            document.getElementById('btnCleanDuplicates').style.display = 'inline-block';
+            document.getElementById('btnClearAll').style.display = 'inline-block';
+            document.getElementById('btnAddMember').style.display = 'inline-block';
+        }
+
+        await updateStats();
+        await renderRecent();
+    } else {
+        document.getElementById('loginPage').style.display = 'block';
+        document.getElementById('mainApp').style.display = 'none';
+    }
+}
+
+async function updateStats() {
+    const osobe = await pb.collection('osobe').getList(1, 1);
+    const porodice = await pb.collection('porodice').getList(1, 1);
+    document.getElementById('countOsobe').textContent = osobe.totalItems;
+    document.getElementById('countPorodice').textContent = porodice.totalItems;
+}
+
+async function renderRecent() {
+    const recent = document.getElementById('recentData');
+    recent.innerHTML = '<h3>Nedavni unosi</h3>';
+    const osobe = await pb.collection('osobe').getList(1, 5, { sort: '-created' });
+    osobe.items.forEach(o => {
+        recent.innerHTML += `<div class="info">${o.ime} ${o.prezime} (${o.spol}, ?) <small>Dodan: ${new Date(o.created).toLocaleString()}</small></div>`;
+    });
+}
+
+document.getElementById('loginButton').addEventListener('click', async () => {
+    const email = document.getElementById('username').value.trim();
+    const pass = document.getElementById('password').value;
+
+    try {
+        await pb.collection('users').authWithPassword(email, pass);
+        currentUser = pb.authStore.model;
+        init();
+    } catch (e) {
+        alert('Pogrešan email ili šifra\n\n' + (e.message || ''));
+    }
+});
+
+function logout() {
+    pb.authStore.clear();
+    currentUser = null;
+    init();
+	localStorage.clear();
+	sessionStorage.clear();
+	location.reload(true);
+}
+
+function getOsobaFormHTML() {
+    return `
+    <h3>Dodaj novu osobu</h3>
+    <form id="newOsobaForm">
+        <div class="form-group">
+            <label class="required">Ime</label>
+            <input type="text" id="newIme" required>
+        </div>
+        <div class="form-group">
+            <label class="required">Prezime</label>
+            <input type="text" id="newPrezime" required>
+        </div>
+        <div class="form-group"><label>Ime oca</label><input id="newImeOca"></div>
+        <div class="form-group"><label>Ime majke</label><input id="newImeMajke"></div>
+        <div class="form-group"><label>Djevojačko prezime majke</label><input id="newDjevMajke"></div>
+        <div class="form-group">
+            <label>Datum rođenja (godina ili pun datum)</label>
+            <input type="text" id="newDatumRod" placeholder="npr. 1985 ili 1985-06-15">
+        </div>
+        <div class="form-group"><label>Mjesto rođenja</label><input id="newMjestoRod"></div>
+        <div class="form-group">
+            <label class="required">Spol</label>
+            <select id="newSpol" required>
+                <option value="">— odaberi —</option>
+                <option value="M">Muško</option>
+                <option value="Z">Žensko</option>
+            </select>
+        </div>
+        <div id="newUdataGrp" class="form-group conditional">
+            <label>Udata</label>
+            <select id="newUdata"><option value="NE">Ne</option><option value="DA">Da</option></select>
+        </div>
+        <div id="newPrezUbrakuGrp" class="form-group conditional">
+            <label>Prezime u braku</label>
+            <input id="newPrezimeUbraku">
+        </div>
+        <div class="form-group">
+            <label class="required">Živi</label>
+            <select id="newZivi" required>
+                <option value="">— odaberi —</option>
+                <option value="DA">Da</option>
+                <option value="NE">Ne</option>
+            </select>
+        </div>
+        <div id="newSmrtGrp" class="conditional">
+            <div class="form-group">
+                <label>Datum smrti (godina ili pun datum)</label>
+                <input type="text" id="newDatumSmrti" placeholder="npr. 2020 ili 2020-03-15">
+            </div>
+            <div class="form-group"><label>Mjesto smrti</label><input id="newMjestoSmrti"></div>
+        </div>
+        <div class="form-group">
+            <label>Napomena</label>
+            <textarea id="newNapomena" rows="3"></textarea>
+        </div>
+        <button type="button" class="btn btn-success" onclick="saveNewPerson()">Spremi</button>
+    </form>
+    `;
+}
+
+function setupOsobaFormEvents() {
+    document.getElementById('newSpol').addEventListener('change', function() {
+        const show = this.value === 'Z';
+        document.getElementById('newUdataGrp').classList.toggle('show', show);
+        if (!show) document.getElementById('newPrezUbrakuGrp').classList.remove('show');
+    });
+    document.getElementById('newUdata').addEventListener('change', function() {
+        document.getElementById('newPrezUbrakuGrp').classList.toggle('show', this.value === 'DA');
+    });
+    document.getElementById('newZivi').addEventListener('change', function() {
+        document.getElementById('newSmrtGrp').classList.toggle('show', this.value === 'NE');
+    });
+}
+
+async function saveNewPerson() {
+    const datumRod = document.getElementById('newDatumRod').value.trim();
+    if (datumRod && !/^\d{4}(-\d{2}(-\d{2})?)?$/.test(datumRod)) return alert('Datum rođenja nije u ispravnom formatu!');
+    const datumSmrti = document.getElementById('newDatumSmrti').value.trim() || '';
+    if (datumSmrti && !/^\d{4}(-\d{2}(-\d{2})?)?$/.test(datumSmrti)) return alert('Datum smrti nije u ispravnom formatu!');
+
+    const newPerson = {
+        ime: document.getElementById('newIme').value.trim(),
+        prezime: document.getElementById('newPrezime').value.trim(),
+        imeOca: document.getElementById('newImeOca').value.trim(),
+        imeMajke: document.getElementById('newImeMajke').value.trim(),
+        djevPrezimeMajke: document.getElementById('newDjevMajke').value.trim(),
+        datumRod,
+        mjestoRod: document.getElementById('newMjestoRod').value.trim(),
+        spol: document.getElementById('newSpol').value,
+        udata: document.getElementById('newUdata').value || 'NE',
+        prezimeUbraku: document.getElementById('newPrezimeUbraku').value.trim(),
+        zivi: document.getElementById('newZivi').value,
+        datumSmrti,
+        mjestoSmrti: document.getElementById('newMjestoSmrti').value.trim(),
+        napomena: document.getElementById('newNapomena').value.trim(),
+        kreirao: currentUser.id
+    };
+
+    try {
+        await pb.collection('osobe').create(newPerson);
+        alert('Nova osoba dodana!');
+        document.getElementById('formArea').style.display = 'none';
+        updateStats();
+        renderRecent();
+    } catch (err) {
+        alert('Greška pri dodavanju osobe: ' + (err.message || ''));
+    }
+}
+
+function getPorodicaFormHTML() {
+    return `
+    <h3>Dodaj novu porodicu</h3>
+    <form id="newPorodicaForm">
+        <div class="form-group">
+            <label class="required">Muž</label>
+            <input list="osobeDatalist" id="newMuz" required placeholder="počnite tipkati...">
+        </div>
+        <div class="form-group">
+            <label class="required">Žena</label>
+            <input list="osobeDatalist" id="newZena" required placeholder="počnite tipkati...">
+        </div>
+        <div class="form-group">
+            <label>Datum vjenčanja (godina ili pun datum)</label>
+            <input type="text" id="newDatumBrak" placeholder="npr. 1985 ili 1985-06-15">
+        </div>
+        <div class="form-group"><label>Mjesto vjenčanja</label><input id="newMjestoBrak"></div>
+        <div class="form-group">
+            <label>Djeca (odvojena zarezima)</label>
+            <input id="newDjeca" placeholder="npr. Emir, Amina, Sara">
+        </div>
+        <div class="form-group">
+            <label class="required">Status</label>
+            <select id="newStatus" required>
+                <option value="active">Aktivna</option>
+                <option value="divorced">Razvedena</option>
+                <option value="annulled">Poništena</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Napomena</label>
+            <textarea id="newNapomenaPor" rows="2"></textarea>
+        </div>
+        <button type="button" class="btn btn-success" onclick="saveNewFamily()">Spremi</button>
+    </form>
+    <datalist id="osobeDatalist"></datalist>
+    `;
+}
+
+async function setupPorodicaDatalist(datalistId = 'osobeDatalist') {
+    const datalist = document.getElementById(datalistId);
+    datalist.innerHTML = '';
+    const osobe = await pb.collection('osobe').getFullList({ sort: 'ime' });
+    osobe.forEach(o => {
+        const option = document.createElement('option');
+        option.value = `${o.ime} ${o.prezime} (ID: ${o.id})`;
+        datalist.appendChild(option);
+    });
+}
+
+async function saveNewFamily() {
+    const muzInput = document.getElementById('newMuz').value.trim();
+    const zenaInput = document.getElementById('newZena').value.trim();
+    const djecaInput = document.getElementById('newDjeca').value.trim().split(',').map(d => d.trim()).filter(d => d);
+    const datumBrak = document.getElementById('newDatumBrak').value.trim() || '';
+    const mjestoBrak = document.getElementById('newMjestoBrak').value.trim() || '';
+    const status = document.getElementById('newStatus').value;
+    const napomena = document.getElementById('newNapomenaPor').value.trim() || '';
+
+    if (datumBrak && !/^\d{4}(-\d{2}(-\d{2})?)?$/.test(datumBrak)) return alert('Datum vjenčanja nije u ispravnom formatu!');
+
+    const getIdFromInput = input => {
+        const match = input.match(/\(\ID: ([^)]+)\)/);
+        return match ? match[1] : null;
+    };
+
+    const muzId = getIdFromInput(muzInput);
+    const zenaId = getIdFromInput(zenaInput);
+
+    if (!muzId || !zenaId) return alert('Muž ili žena nisu pronađeni! Koristite postojeće osobe iz liste.');
+
+    let muz, zena;
+    try {
+        muz = await pb.collection('osobe').getOne(muzId);
+        zena = await pb.collection('osobe').getOne(zenaId);
+    } catch (err) {
+        return alert('Greška pri dohvatanju muža/žene: ' + err.message);
+    }
+
+    if (muz.spol !== 'M') return alert('Muž nije muško!');
+    if (zena.spol !== 'Z') return alert('Žena nije žensko!');
+
+    const djecaIds = [];
+
+    for (const dijeteIme of djecaInput) {
+        const existing = await pb.collection('osobe').getList(1, 1, {
+            filter: `ime = "${dijeteIme}" && imeOca = "${muz.ime}" && imeMajke = "${zena.ime}"`
+        });
+
+        let dijeteId;
+        if (existing.totalItems > 0) {
+            dijeteId = existing.items[0].id;
+        } else {
+            const newDijete = {
+                ime: dijeteIme,
+                prezime: muz.prezime,
+                imeOca: muz.ime,
+                imeMajke: zena.ime,
+                djevPrezimeMajke: zena.prezime,
+                datumRod: '',
+                mjestoRod: '',
+                spol: 'M', // Default, može se uređivati kasnije
+                udata: 'NE',
+                prezimeUbraku: '',
+                zivi: 'DA',
+                datumSmrti: '',
+                mjestoSmrti: '',
+                napomena: '',
+                kreirao: currentUser.id
+            };
+            const created = await pb.collection('osobe').create(newDijete);
+            dijeteId = created.id;
+        }
+        djecaIds.push(dijeteId);
+    }
+
+    const newFamily = {
+        muz: muzId,
+        zena: zenaId,
+        datumBrak,
+        mjestoBrak,
+        djeca: djecaIds,
+        status,
+        napomena,
+        kreirao: currentUser.id
+    };
+
+    try {
+        await pb.collection('porodice').create(newFamily);
+        alert('Nova porodica dodana!');
+        document.getElementById('formArea').style.display = 'none';
+        updateStats();
+        renderRecent();
+    } catch (err) {
+        alert('Greška pri dodavanju porodice: ' + (err.message || ''));
+    }
+}
+
+function showForm(type) {
+    const area = document.getElementById('formArea');
+    area.style.display = 'block';
+    if (type === 'osoba') {
+        area.innerHTML = getOsobaFormHTML();
+        setupOsobaFormEvents();
+    } else if (type === 'porodica') {
+        area.innerHTML = getPorodicaFormHTML();
+        setupPorodicaDatalist();
+    }
+}
+
+async function showAllData() {
+    const content = document.getElementById('allDataContent');
+    content.innerHTML = '<p>Učitavam...</p>';
+    document.getElementById('modalAll').classList.add('show');
+
+    try {
+        const osobe = await pb.collection('osobe').getFullList({ sort: '-created' });
+        let html = '<h3>Sve osobe</h3><table><thead><tr><th>ID</th><th>Ime Prezime</th><th>Rođenje</th><th>Živi</th><th>Akcije</th></tr></thead><tbody>';
+        osobe.forEach(o => {
+            const canEdit = currentUser.admin || (o.kreirao && o.kreirao === currentUser.id);
+            const canDelete = canEdit;
+            html += `<tr>
+                <td>${o.id}</td>
+                <td>${o.ime} ${o.prezime}</td>
+                <td>${o.datumRod || '?'}</td>
+                <td>${o.zivi === 'DA' ? '✔' : '✘'}</td>
+                <td>
+                    ${canEdit ? `<button class="btn btn-small" onclick="editPerson('${o.id}')">Uredi</button>` : ''}
+                    ${canDelete ? `<button class="btn btn-danger btn-small" onclick="deletePerson('${o.id}')">Obriši</button>` : ''}
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+
+        const porodice = await pb.collection('porodice').getFullList({ expand: 'muz,zena,djeca' });
+        html += '<h3>Sve porodice</h3><table><thead><tr><th>ID</th><th>Roditelji</th><th>Djeca</th><th>Status</th><th>Akcije</th></tr></thead><tbody>';
+        porodice.forEach(p => {
+            const muz = p.expand.muz ? `${p.expand.muz.ime} ${p.expand.muz.prezime}` : '?';
+            const zena = p.expand.zena ? `${p.expand.zena.ime} ${p.expand.zena.prezime}` : '?';
+            const djeca = p.expand.djeca ? p.expand.djeca.map(d => d.ime).join(', ') : '—';
+            const statusText = p.status === 'active' ? 'Aktivna' : p.status === 'divorced' ? 'Razvedena' : 'Poništena';
+            const canEdit = currentUser.admin || (p.kreirao && p.kreirao === currentUser.id);
+            const canDelete = canEdit;
+            html += `<tr>
+                <td>${p.id}</td>
+                <td>${muz} ⚭ ${zena}</td>
+                <td>${djeca}</td>
+                <td>${statusText}</td>
+                <td>
+                    ${canEdit ? `<button class="btn btn-small" onclick="editFamily('${p.id}')">Uredi</button>` : ''}
+                    ${canDelete ? `<button class="btn btn-danger btn-small" onclick="deleteFamily('${p.id}')">Obriši</button>` : ''}
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+
+        content.innerHTML = html;
+    } catch (err) {
+        content.innerHTML = '<p style="color:red;">Greška pri učitavanju: ' + err.message + '</p>';
+    }
+}
+
+async function editPerson(id) {
+    try {
+        editingPerson = await pb.collection('osobe').getOne(id);
+    } catch (err) {
+        return alert('Osoba nije pronađena!');
+    }
+
+    if (!currentUser.admin && editingPerson.kreirao !== currentUser.id) return alert('Možete uređivati samo osobe koje ste vi unijeli!');
+// NOVO: Zatvori pregled modal prije otvaranja edita
+    closeModal('modalAll');
+    document.getElementById('editHeaderId').textContent = `${editingPerson.ime} ${editingPerson.prezime}`;
+    document.getElementById('editIme').value = editingPerson.ime;
+    document.getElementById('editPrezime').value = editingPerson.prezime;
+    document.getElementById('editImeOca').value = editingPerson.imeOca || '';
+    document.getElementById('editImeMajke').value = editingPerson.imeMajke || '';
+    document.getElementById('editDjevMajke').value = editingPerson.djevPrezimeMajke || '';
+    document.getElementById('editDatumRod').value = editingPerson.datumRod || '';
+    document.getElementById('editMjestoRod').value = editingPerson.mjestoRod || '';
+    document.getElementById('editSpol').value = editingPerson.spol;
+    document.getElementById('editUdata').value = editingPerson.udata || 'NE';
+    document.getElementById('editPrezimeUbraku').value = editingPerson.prezimeUbraku || '';
+    document.getElementById('editZivi').value = editingPerson.zivi;
+    document.getElementById('editDatumSmrti').value = editingPerson.datumSmrti || '';
+    document.getElementById('editMjestoSmrti').value = editingPerson.mjestoSmrti || '';
+    document.getElementById('editNapomena').value = editingPerson.napomena || '';
+
+    const spolEvent = new Event('change');
+    document.getElementById('editSpol').dispatchEvent(spolEvent);
+    document.getElementById('editUdata').dispatchEvent(spolEvent);
+    document.getElementById('editZivi').dispatchEvent(spolEvent);
+
+    openModal('modalEdit');
+}
+
+async function saveEdit() {
+    const datumRod = document.getElementById('editDatumRod').value.trim();
+    if (datumRod && !/^\d{4}(-\d{2}(-\d{2})?)?$/.test(datumRod)) {
+        return alert('Datum rođenja nije u ispravnom formatu! (npr. 1985 ili 1985-06-15)');
+    }
+
+    const datumSmrti = document.getElementById('editDatumSmrti').value.trim() || '';
+    if (datumSmrti && !/^\d{4}(-\d{2}(-\d{2})?)?$/.test(datumSmrti)) {
+        return alert('Datum smrti nije u ispravnom formatu! (npr. 2020 ili 2020-03-15)');
+    }
+
+    const updated = {
+        ime: document.getElementById('editIme').value.trim(),
+        prezime: document.getElementById('editPrezime').value.trim(),
+        imeOca: document.getElementById('editImeOca').value.trim(),
+        imeMajke: document.getElementById('editImeMajke').value.trim(),
+        djevPrezimeMajke: document.getElementById('editDjevMajke').value.trim(),
+        datumRod,
+        mjestoRod: document.getElementById('editMjestoRod').value.trim(),
+        spol: document.getElementById('editSpol').value,
+        udata: document.getElementById('editUdata').value,
+        prezimeUbraku: document.getElementById('editPrezimeUbraku').value.trim(),
+        zivi: document.getElementById('editZivi').value,
+        datumSmrti,
+        mjestoSmrti: document.getElementById('editMjestoSmrti').value.trim(),
+        napomena: document.getElementById('editNapomena').value.trim()
+    };
+
+    try {
+        await pb.collection('osobe').update(editingPerson.id, updated);
+        closeModal('modalEdit');
+        alert('Promjene su uspješno spremljene.');
+        showAllData();
+        updateStats();
+        renderRecent();
+    } catch (err) {
+        console.error('Greška pri spremanju osobe:', err);
+        let msg = 'Ne mogu spremiti promjene.\n\n';
+        if (err.status === 404) {
+            msg += 'PocketBase ne može pronaći zapis (404).\n';
+            msg += 'Najčešći razlog: nema Update pravila za kolekciju "osobe".\n';
+            msg += 'Idi u PocketBase admin → Collections → osobe → Rules → Update Rule\n';
+            msg += 'Postavi npr.: @request.auth.id != ""  (ili preciznije pravilo)';
+        } else if (err.status === 403) {
+            msg += 'Nemate dozvolu za izmjenu (403 Forbidden).\nPostavite Update Rule u PocketBase.';
+        } else {
+            msg += err.message || 'Nepoznata greška – pogledaj konzolu (F12)';
+        }
+        alert(msg);
+    }
+}
+
+async function editFamily(id) {
+    try {
+        editingFamily = await pb.collection('porodice').getOne(id, { expand: 'muz,zena,djeca' });
+		closeModal('modalAll');
+    } catch (err) {
+        return alert('Porodica nije pronađena!');
+    }
+
+    if (!currentUser.admin && editingFamily.kreirao !== currentUser.id) return alert('Možete uređivati samo porodice koje ste vi unijeli!');
+
+    const muzName = editingFamily.expand.muz ? `${editingFamily.expand.muz.ime} ${editingFamily.expand.muz.prezime}` : '?';
+    const zenaName = editingFamily.expand.zena ? `${editingFamily.expand.zena.ime} ${editingFamily.expand.zena.prezime}` : '?';
+    document.getElementById('editFamilyHeaderId').textContent = `${muzName} & ${zenaName}`;
+    document.getElementById('editMuz').value = `${muzName} (ID: ${editingFamily.muz})`;
+    document.getElementById('editZena').value = `${zenaName} (ID: ${editingFamily.zena})`;
+    document.getElementById('editDatumBrak').value = editingFamily.datumBrak;
+    document.getElementById('editMjestoBrak').value = editingFamily.mjestoBrak;
+    document.getElementById('editDjeca').value = editingFamily.expand.djeca.map(d => d.ime).join(', ');
+    document.getElementById('editStatus').value = editingFamily.status;
+    document.getElementById('editNapomenaPor').value = editingFamily.napomena;
+
+    await setupPorodicaDatalist('osobeDatalistEdit');
+    openModal('modalEditFamily');
+}
+
+async function saveEditFamily() {
+    const muzInput = document.getElementById('editMuz').value.trim();
+    const zenaInput = document.getElementById('editZena').value.trim();
+    const djecaInput = document.getElementById('editDjeca').value.trim().split(',').map(d => d.trim()).filter(d => d);
+    const datumBrak = document.getElementById('editDatumBrak').value.trim() || '';
+    const mjestoBrak = document.getElementById('editMjestoBrak').value.trim() || '';
+    const status = document.getElementById('editStatus').value;
+    const napomena = document.getElementById('editNapomenaPor').value.trim() || '';
+
+    if (datumBrak && !/^\d{4}(-\d{2}(-\d{2})?)?$/.test(datumBrak)) return alert('Datum vjenčanja nije u ispravnom formatu!');
+
+    const getIdFromInput = input => {
+        const match = input.match(/\(\ID: ([^)]+)\)/);
+        return match ? match[1] : input;
+    };
+
+    const muzId = getIdFromInput(muzInput);
+    const zenaId = getIdFromInput(zenaInput);
+
+    let muz, zena;
+    try {
+        muz = await pb.collection('osobe').getOne(muzId);
+        zena = await pb.collection('osobe').getOne(zenaId);
+    } catch (err) {
+        return alert('Muž ili žena nisu pronađeni!');
+    }
+
+    if (muz.spol !== 'M') return alert('Muž nije muško!');
+    if (zena.spol !== 'Z') return alert('Žena nije žensko!');
+
+    const djecaIds = [];
+
+    for (const dijeteIme of djecaInput) {
+        const existing = await pb.collection('osobe').getList(1, 1, {
+            filter: `ime = "${dijeteIme}" && imeOca = "${muz.ime}" && imeMajke = "${zena.ime}"`
+        });
+
+        let dijeteId;
+        if (existing.totalItems > 0) {
+            dijeteId = existing.items[0].id;
+        } else {
+            const newDijete = {
+                ime: dijeteIme,
+                prezime: muz.prezime,
+                imeOca: muz.ime,
+                imeMajke: zena.ime,
+                djevPrezimeMajke: zena.prezime,
+                datumRod: '',
+                mjestoRod: '',
+                spol: 'M',
+                udata: 'NE',
+                prezimeUbraku: '',
+                zivi: 'DA',
+                datumSmrti: '',
+                mjestoSmrti: '',
+                napomena: '',
+                kreirao: currentUser.id
+            };
+            const created = await pb.collection('osobe').create(newDijete);
+            dijeteId = created.id;
+        }
+        djecaIds.push(dijeteId);
+    }
+
+    const updated = {
+        muz: muzId,
+        zena: zenaId,
+        datumBrak,
+        mjestoBrak,
+        djeca: djecaIds,
+        status,
+        napomena
+    };
+
+    try {
+        await pb.collection('porodice').update(editingFamily.id, updated);
+        closeModal('modalEditFamily');
+        alert('Promjene su spremljene.');
+        showAllData();
+        updateStats();
+        renderRecent();
+    } catch (err) {
+        console.error(err);
+        let msg = 'Greška pri uređivanju porodice:\n';
+        if (err.status === 404) {
+            msg += 'PocketBase ne može pronaći zapis (404).\nNajčešći razlog: Update rule nije setovan.';
+        } else if (err.status === 403) {
+            msg += 'Nemate dozvolu (403). Setujte Update rule.';
+        } else {
+            msg += (err.data?.message || err.message || 'Nepoznata greška');
+        }
+        alert(msg);
+    }
+}
+
+async function deletePerson(id) {
+    if (!confirm('Zaista obrisati ovu osobu?')) return;
+    try {
+        await pb.collection('osobe').delete(id);
+        alert('Osoba obrisana.');
+        showAllData();
+    } catch (err) {
+        alert('Greška pri brisanju: ' + (err.message || ''));
+    }
+}
+
+async function deleteFamily(id) {
+    if (!confirm('Zaista obrisati ovu porodicu?')) return;
+    try {
+        await pb.collection('porodice').delete(id);
+        alert('Porodica obrisana.');
+        showAllData();
+    } catch (err) {
+        alert('Greška pri brisanju: ' + (err.message || ''));
+    }
+}
+
+async function cleanDuplicates() {
+    if (!currentUser.admin) return alert('Samo administrator može čistiti duplikate!');
+
+    const osobe = await pb.collection('osobe').getFullList();
+
+    const duplicates = [];
+    const seen = new Map();
+
+    osobe.forEach(o => {
+        const key = `${o.ime.toLowerCase()}-${o.prezime.toLowerCase()}-${o.datumRod || ''}`;
+        if (seen.has(key)) {
+            duplicates.push([seen.get(key), o]);
+        } else {
+            seen.set(key, o);
+        }
+    });
+
+    if (duplicates.length === 0) return alert('Nema duplikata!');
+
+    for (const [old, dup] of duplicates) {
+        await pb.collection('osobe').update(old.id, {
+            napomena: `${old.napomena ? old.napomena + ' ' : ''}(Spojeno sa duplikatom ID ${dup.id})`
+        });
+        await pb.collection('osobe').delete(dup.id);
+        const porodice = await pb.collection('porodice').getFullList();
+        for (const p of porodice) {
+            if (p.djeca.includes(dup.id)) {
+                const newDjeca = p.djeca.map(d => d === dup.id ? old.id : d);
+                await pb.collection('porodice').update(p.id, { djeca: newDjeca });
+            }
+        }
+    }
+
+    alert(`Obrisano ${duplicates.length} duplikata.`);
+    updateStats();
+    renderRecent();
+}
+
+async function manageUsers() {
+    if (!currentUser.admin) return alert('Samo administrator može upravljati korisnicima!');
+
+    const users = await pb.collection('users').getFullList({ sort: 'email' });
+    const tbody = document.getElementById('usersTable').querySelector('tbody');
+    tbody.innerHTML = '';
+    users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${u.email}</td>
+            <td>${u.admin ? 'Da' : 'Ne'}</td>
+            <td>
+                <button class="btn btn-small" onclick="showChangePassword('${u.id}', '${u.email}')">Promijeni šifru</button>
+                <button class="btn btn-danger btn-small" onclick="deleteUser('${u.id}')">Obriši</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    openModal('modalManageUsers');
+}
+
+function showAddUserModal() {
+    openModal('modalAddUser');
+}
+
+async function addNewUser() {
+    const email = document.getElementById('newUsername').value.trim();
+    const pass = document.getElementById('newPassword').value;
+    const isAdmin = document.getElementById('newIsAdmin').checked;
+
+    if (!email || !pass) return alert('Popunite email i šifru!');
+
+    try {
+        await pb.collection('users').create({
+            email,
+            password: pass,
+            passwordConfirm: pass,
+            admin: isAdmin
+        });
+        closeModal('modalAddUser');
+        alert('Novi korisnik dodan!');
+        manageUsers();
+    } catch (err) {
+        alert('Greška pri dodavanju korisnika:\n' + (err.data?.message || err.message || 'Nepoznata greška'));
+    }
+}
+
+function showChangePassword(id, email) {
+    editingUser = id;
+    document.getElementById('changePassUser').textContent = email;
+    openModal('modalChangePassword');
+}
+
+async function changePassword() {
+    const newPass = document.getElementById('changeNewPass').value;
+
+    if (!newPass) return alert('Unesite novu šifru!');
+
+    try {
+        await pb.collection('users').update(editingUser, {
+            password: newPass,
+            passwordConfirm: newPass
+        });
+        closeModal('modalChangePassword');
+        alert('Šifra promijenjena!');
+    } catch (err) {
+        alert('Greška pri promjeni šifre:\n' + (err.data?.message || err.message || 'Nepoznata greška'));
+    }
+}
+
+async function deleteUser(id) {
+    if (!confirm('Zaista obrisati ovog korisnika?')) return;
+
+    try {
+        await pb.collection('users').delete(id);
+        alert('Korisnik obrisan!');
+        manageUsers();
+    } catch (err) {
+        alert('Greška pri brisanju korisnika:\n' + (err.data?.message || err.message || 'Nepoznata greška'));
+    }
+}
+
+async function clearAllData() {
+    if (!currentUser.admin) return alert('Samo administrator može obrisati sve podatke!');
+
+    if (!confirm('Obrisati SVE podatke?\nOvo se NE MOŽE poništiti!')) return;
+    if (!confirm('Jeste li 100% sigurni?')) return;
+
+    try {
+        const osobe = await pb.collection('osobe').getFullList({ batch: 500 });
+        for (const o of osobe) await pb.collection('osobe').delete(o.id);
+
+        const porodice = await pb.collection('porodice').getFullList({ batch: 500 });
+        for (const p of porodice) await pb.collection('porodice').delete(p.id);
+
+        alert('Svi podaci su obrisani.');
+        updateStats();
+        renderRecent();
+    } catch (err) {
+        alert('Greška pri brisanju podataka:\n' + (err.data?.message || err.message || 'Nepoznata greška'));
+    }
+}
+
+function showUputstvo() {
+    openModal('modalUputstvo');
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+        openModalsCount = Math.max(0, openModalsCount - 1);
+        updateBodyScroll();
+    }
+}
+
+async function exportData(fmt) {
+    try {
+        const osobe = await pb.collection('osobe').getFullList();
+        let content, filename, type;
+        const today = new Date().toISOString().slice(0,10);
+
+        if (fmt === 'csv') {
+            let csv = 'ID,Ime,Prezime,Spol,Datum rođenja,Mjesto rođenja,Živi,Datum smrti,Mjesto smrti,Ime oca,Ime majke,Djev. prez. majke,Napomena\n';
+            osobe.forEach(o => {
+                csv += `"${o.id}","${o.ime}","${o.prezime}","${o.spol}","${o.datumRod}","${o.mjestoRod}","${o.zivi}","${o.datumSmrti}","${o.mjestoSmrti}","${o.imeOca}","${o.imeMajke}","${o.djevPrezimeMajke}","${o.napomena?.replace(/"/g,'""')||''}"\n`;
+            });
+            content = csv;
+            type = 'text/csv';
+            filename = `porodica-osobe-${today}.csv`;
+        } else {
+            content = JSON.stringify(osobe, null, 2);
+            type = 'application/json';
+            filename = `porodica-osobe-${today}.json`;
+        }
+
+        const blob = new Blob([content], {type});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        alert('Greška pri exportu:\n' + (err.data?.message || err.message || 'Nepoznata greška'));
+    }
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('editSpol')?.addEventListener('change', function() {
+        const show = this.value === 'Z';
+        document.getElementById('editUdataGrp')?.classList.toggle('show', show);
+        if (!show) document.getElementById('editPrezUbrakuGrp')?.classList.remove('show');
+    });
+    document.getElementById('editUdata')?.addEventListener('change', function() {
+        document.getElementById('editPrezUbrakuGrp')?.classList.toggle('show', this.value === 'DA');
+    });
+    document.getElementById('editZivi')?.addEventListener('change', function() {
+        document.getElementById('editSmrtGrp')?.classList.toggle('show', this.value === 'NE');
+    });
+    init();
+});
+function showAddMemberModal() {
+    if (!currentUser.admin) return alert('Samo administrator može dodavati nove članove!');
+    
+    // Očisti formu
+    document.getElementById('newMemberEmail').value = '';
+    document.getElementById('newMemberPassword').value = '';
+    document.getElementById('newMemberIsAdmin').checked = false;
+    
+    openModal('modalAddMember');
+}
+
+async function addNewMember() {
+    const email = document.getElementById('newMemberEmail').value.trim();
+    const password = document.getElementById('newMemberPassword').value.trim();
+    const isAdmin = document.getElementById('newMemberIsAdmin').checked;
+
+    if (!email || !password) {
+        return alert('Molim vas popunite email i šifru!');
+    }
+
+    if (password.length < 8) {
+        return alert('Šifra treba imati najmanje 8 znakova!');
+    }
+
+    try {
+        await pb.collection('users').create({
+            email: email,
+            password: password,
+            passwordConfirm: password,
+            admin: isAdmin,
+            verified: true  // opcionalno – odmah verifikovan
+        });
+
+        alert(`Član uspješno dodan!\n\nEmail: ${email}\nŠifra: ${password}\n\nPošaljite ovo osobi i zamolite je da promijeni šifru nakon prvog logina.`);
+        
+        closeModal('modalAddMember');
+        
+        // Osvježi listu korisnika ako je Manage Users otvoren
+        if (document.getElementById('modalManageUsers').classList.contains('show')) {
+            manageUsers();
+        }
+    } catch (err) {
+        console.error(err);
+        let msg = 'Greška pri dodavanju člana:\n';
+        if (err.data?.data?.email?.message) {
+            msg += err.data.data.email.message;
+        } else {
+            msg += err.message || 'Nepoznata greška – provjerite konzolu (F12)';
+        }
+        alert(msg);
+    }
+}
+</script>
+</body>
+</html>
